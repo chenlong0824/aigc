@@ -25,6 +25,9 @@ data/db/
 data/media/audio/
 data/media/videos/
 
+# Models (large files, deployed separately)
+data/models/*.tar.gz
+
 # Logs
 *.log
 logs/
