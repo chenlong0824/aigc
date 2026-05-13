@@ -81,30 +81,30 @@ def _init_chroma_sync():
     try:
         import time
         t_start = time.time()
-        logger.info("[ChromaDB] 开始初始化...")
+        print("[ChromaDB] 开始初始化...", flush=True)
         
         import chromadb
         from chromadb.config import Settings
-        logger.info("[ChromaDB] chromadb import完成, 耗时%.2fs", time.time() - t_start)
+        print(f"[ChromaDB] chromadb import完成, 耗时{time.time() - t_start:.2f}s", flush=True)
         
         t1 = time.time()
         _chroma_client = chromadb.PersistentClient(
             path=CHROMA_PERSIST_DIR,
             settings=Settings(anonymized_telemetry=False)
         )
-        logger.info("[ChromaDB] PersistentClient创建完成, 耗时%.2fs", time.time() - t1)
+        print(f"[ChromaDB] PersistentClient创建完成, 耗时{time.time() - t1:.2f}s", flush=True)
         
         t2 = time.time()
         try:
             _chroma_collection = _chroma_client.get_collection("xianyang_travel")
-            logger.info("[ChromaDB] get_collection完成, 耗时%.2fs", time.time() - t2)
+            print(f"[ChromaDB] get_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
         except Exception as e2:
-            logger.warning("[ChromaDB] get_collection失败: %s, 尝试创建", str(e2)[:200])
+            print(f"[ChromaDB] get_collection失败: {str(e2)[:200]}, 尝试创建", flush=True)
             _chroma_collection = _chroma_client.create_collection("xianyang_travel")
-            logger.info("[ChromaDB] create_collection完成, 耗时%.2fs", time.time() - t2)
+            print(f"[ChromaDB] create_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
         
         existing = _chroma_collection.count()
-        logger.info("[ChromaDB] 现有文档数: %d", existing)
+        print(f"[ChromaDB] 现有文档数: {existing}", flush=True)
         if existing == 0:
             documents = []
             metadatas = []
@@ -116,14 +116,16 @@ def _init_chroma_sync():
             
             t3 = time.time()
             _chroma_collection.add(documents=documents, metadatas=metadatas, ids=ids)
-            logger.info("[ChromaDB] 添加%d条文档完成, 耗时%.2fs", len(documents), time.time() - t3)
+            print(f"[ChromaDB] 添加{len(documents)}条文档完成, 耗时{time.time() - t3:.2f}s", flush=True)
         
         _chroma_available = True
-        logger.info("[ChromaDB] 初始化完成! 总耗时%.2fs", time.time() - t_start)
+        print(f"[ChromaDB] 初始化完成! 总耗时{time.time() - t_start:.2f}s", flush=True)
         return True
     except Exception as e:
         _chroma_available = False
-        logger.error("[ChromaDB] 初始化失败: %s\n%s", str(e)[:500], traceback.format_exc()[:500])
+        import traceback as tb
+        print(f"[ChromaDB] 初始化失败: {str(e)[:500]}", flush=True)
+        print(tb.format_exc()[:500], flush=True)
         return False
 
 
@@ -134,10 +136,10 @@ def init_chroma_async():
     def init_thread():
         _init_chroma_sync()
     
-    logger.info("[ChromaDB] 启动后台初始化线程...")
+    print("[ChromaDB] 启动后台初始化线程...", flush=True)
     thread = threading.Thread(target=init_thread, daemon=True)
     thread.start()
-    logger.info("[ChromaDB] 后台线程已启动, thread_id=%s", thread.ident)
+    print(f"[ChromaDB] 后台线程已启动, thread_id={thread.ident}", flush=True)
 
 
 def get_relevant_knowledge_chroma(user_message: str) -> str:
