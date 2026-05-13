@@ -22,55 +22,64 @@ KNOWLEDGE_DATA = [
 
 def init_chroma():
     """
-    初始化ChromaDB（模型已缓存后约1秒完成）
+    初始化ChromaDB（后台线程，模型缓存后约1秒完成）
     """
-    global _chroma_collection
-    
-    import time
-    t_start = time.time()
-    print("[ChromaDB] 开始初始化...", flush=True)
-    
-    try:
-        import chromadb
-        from chromadb.config import Settings
-        print(f"[ChromaDB] chromadb import完成, 耗时{time.time() - t_start:.2f}s", flush=True)
+    def _init():
+        global _chroma_collection
         
-        t1 = time.time()
-        client = chromadb.PersistentClient(
-            path=CHROMA_PERSIST_DIR,
-            settings=Settings(anonymized_telemetry=False)
-        )
-        print(f"[ChromaDB] PersistentClient创建完成, 耗时{time.time() - t1:.2f}s", flush=True)
+        import time
+        t_start = time.time()
+        print("[ChromaDB] 开始初始化...", flush=True)
         
-        t2 = time.time()
         try:
-            _chroma_collection = client.get_collection("xianyang_travel")
-            print(f"[ChromaDB] get_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
-        except Exception:
-            _chroma_collection = client.create_collection("xianyang_travel")
-            print(f"[ChromaDB] create_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
-        
-        existing = _chroma_collection.count()
-        print(f"[ChromaDB] 现有文档数: {existing}", flush=True)
-        if existing == 0:
-            documents = []
-            metadatas = []
-            ids = []
-            for i, item in enumerate(KNOWLEDGE_DATA):
-                documents.append(item["content"])
-                metadatas.append({"category": item["category"]})
-                ids.append(f"doc_{i}")
+            import chromadb
+            from chromadb.config import Settings
+            print(f"[ChromaDB] chromadb import完成, 耗时{time.time() - t_start:.2f}s", flush=True)
             
-            t3 = time.time()
-            _chroma_collection.add(documents=documents, metadatas=metadatas, ids=ids)
-            print(f"[ChromaDB] 添加{len(documents)}条文档完成, 耗时{time.time() - t3:.2f}s", flush=True)
-        
-        print(f"[ChromaDB] 初始化完成! 总耗时{time.time() - t_start:.2f}s", flush=True)
-    except Exception as e:
-        import traceback as tb
-        print(f"[ChromaDB] 初始化失败: {str(e)[:500]}", flush=True)
-        print(tb.format_exc()[:500], flush=True)
-        _chroma_collection = None
+            t1 = time.time()
+            client = chromadb.PersistentClient(
+                path=CHROMA_PERSIST_DIR,
+                settings=Settings(anonymized_telemetry=False)
+            )
+            print(f"[ChromaDB] PersistentClient创建完成, 耗时{time.time() - t1:.2f}s", flush=True)
+            
+            t2 = time.time()
+            try:
+                _chroma_collection = client.get_collection("xianyang_travel")
+                print(f"[ChromaDB] get_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
+            except Exception:
+                _chroma_collection = client.create_collection("xianyang_travel")
+                print(f"[ChromaDB] create_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
+            
+            existing = _chroma_collection.count()
+            print(f"[ChromaDB] 现有文档数: {existing}", flush=True)
+            if existing == 0:
+                documents = []
+                metadatas = []
+                ids = []
+                for i, item in enumerate(KNOWLEDGE_DATA):
+                    documents.append(item["content"])
+                    metadatas.append({"category": item["category"]})
+                    ids.append(f"doc_{i}")
+                
+                t3 = time.time()
+                _chroma_collection.add(documents=documents, metadatas=metadatas, ids=ids)
+                print(f"[ChromaDB] 添加{len(documents)}条文档完成, 耗时{time.time() - t3:.2f}s", flush=True)
+            
+            print(f"[ChromaDB] 初始化完成! 总耗时{time.time() - t_start:.2f}s", flush=True)
+        except Exception as e:
+            import traceback as tb
+            print(f"[ChromaDB] 初始化失败: {str(e)[:500]}", flush=True)
+            print(tb.format_exc()[:500], flush=True)
+            _chroma_collection = None
+    
+    import threading
+    t = threading.Thread(target=_init, daemon=True)
+    t.start()
+
+
+# 模块加载时启动ChromaDB后台初始化（不阻塞服务启动）
+init_chroma()
 
 
 def get_relevant_knowledge(user_message: str) -> str:
@@ -145,7 +154,3 @@ async def chat_with_knowledge(session_id: str, user_message: str) -> str:
         return answer
     except Exception as e:
         return f"智能客服暂时不可用，请稍后重试。您也可以拨打客服热线 029-12345 进行咨询。错误信息：{str(e)[:100]}"
-
-
-# 模块加载时同步初始化ChromaDB（模型已缓存后约1秒）
-init_chroma()
