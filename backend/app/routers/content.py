@@ -288,13 +288,11 @@ async def compose_video(req: ComposeRequest):
         ffmpeg_exe = FFMPEG_PATH
         # 检查FFmpeg是否安装
         if not os.path.exists(ffmpeg_exe):
-            task.status = "completed"
-            task.output_data = '{"message": "FFmpeg未安装，视频合成跳过", "mock": true}'
+            task.status = "failed"
+            task.output_data = '{"message": "FFmpeg未安装，视频合成失败", "mock": true}'
             task.output_path = ""
             db.commit()
-            return {"success": True, "data": {"task_id": task.id, "status": "completed", "message": "FFmpeg未安装，已生成模拟结果"}}
-
-        # 设置输出文件名
+            return {"success": False, "message": "FFmpeg未安装，无法合成视频"}
         output_filename = f"video_{task.id}_{uuid.uuid4().hex[:8]}.mp4"
         output_path = os.path.join(VIDEO_OUTPUT_DIR, output_filename)
 
@@ -539,10 +537,10 @@ async def generate_digital_human(req: DigitalHumanRequest):
         ffmpeg_exe = FFMPEG_PATH
         # 检查FFmpeg是否安装
         if not os.path.exists(ffmpeg_exe):
-            task.status = "completed"
-            task.output_data = '{"message": "FFmpeg未安装，数智人视频跳过", "mock": true}'
+            task.status = "failed"
+            task.output_data = '{"message": "FFmpeg未安装，数智人视频合成失败", "mock": true}'
             db.commit()
-            return {"success": True, "data": {"task_id": task.id, "status": "completed", "message": "FFmpeg未安装，已生成模拟结果"}}
+            return {"success": False, "data": {"task_id": task.id, "status": "failed", "message": "FFmpeg未安装，无法合成数智人视频"}}
 
         # 生成TTS音频
         audio_path = await generate_tts(req.script, f"digital_{task.id}")
