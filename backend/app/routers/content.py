@@ -368,6 +368,7 @@ async def compose_video(req: ComposeRequest):
             )
 
             # 检查匹配到的素材文件是否存在
+            img_path = None
             if matched_images:
                 img_path = matched_images[0].file_path
                 if not os.path.exists(img_path):
