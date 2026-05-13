@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Input, Select, Button, Steps, Spin, message, Alert, Tag, Space, Row, Col, Empty } from 'antd'
 import { VideoCameraOutlined, ThunderboltOutlined, DownloadOutlined, FireOutlined, TeamOutlined, ClockCircleOutlined } from '@ant-design/icons'
-import axios from 'axios'
 import { contentApi, insightApi } from '../../services/api'
 
 interface Topic {
@@ -116,7 +115,7 @@ export default function OneClickVideo() {
     if (!taskId) { message.warning('没有可下载的视频'); return }
     try {
       message.loading({ content: '正在下载视频...', key: 'download', duration: 0 })
-      const res = await axios.get(`/api/content/tasks/${taskId}/download`, { responseType: 'blob' })
+      const res = await contentApi.downloadTask(taskId)
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const link = document.createElement('a')
       link.href = url

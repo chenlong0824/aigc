@@ -41,6 +41,7 @@ export const contentApi = {
   composeVideo: (topic: string, templateId: number, style: string) => api.post('/content/compose-video', { topic, template_id: templateId, style }),
   getTasks: (params?: unknown) => api.get('/content/tasks', { params }),
   getTask: (id: number) => api.get(`/content/tasks/${id}`),
+  downloadTask: (id: number) => api.get(`/content/tasks/${id}/download`, { responseType: 'blob' }),
   generateDigitalHuman: (avatarId: string, script: string) => api.post('/content/digital-human/generate', { avatar_id: avatarId, script }),
   getAvatars: () => api.get('/content/digital-human/avatars'),
 }
