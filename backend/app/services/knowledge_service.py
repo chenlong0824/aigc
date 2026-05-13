@@ -1,4 +1,12 @@
+import threading
+from app.config import CHROMA_PERSIST_DIR
 from app.services.llm_service import chat as llm_chat
+
+# ChromaDB客户端（延迟加载）
+_chroma_client = None
+_chroma_collection = None
+_lock = threading.Lock()
+_chroma_available = False  # ChromaDB是否可用
 
 # 知识库数据
 KNOWLEDGE_DATA = [
@@ -17,9 +25,20 @@ KNOWLEDGE_DATA = [
 ]
 
 
-def get_relevant_knowledge(user_message: str) -> str:
+def is_chroma_available() -> bool:
     """
-    根据用户问题获取相关知识（简化版，不使用向量检索）
+    检查ChromaDB是否可用
+    
+    Returns:
+        True表示ChromaDB可用，False表示不可用
+    """
+    global _chroma_available
+    return _chroma_available
+
+
+def get_relevant_knowledge_keyword(user_message: str) -> str:
+    """
+    根据用户问题获取相关知识（关键词匹配，备用方案）
 
     Args:
         user_message: 用户消息
@@ -27,7 +46,6 @@ def get_relevant_knowledge(user_message: str) -> str:
     Returns:
         相关知识文本
     """
-    # 简单的关键词匹配
     keywords = {
         "乾陵": "乾陵是唐高宗李治与武则天的合葬墓，位于咸阳市乾县梁山之上。乾陵是唐十八陵中保存最完整的一座，以'因山为陵'的独特形制闻名，陵前有著名的无字碑、述圣纪碑和六十一蕃臣像。",
         "茂陵": "茂陵是汉武帝刘彻的陵墓，位于咸阳市兴平市，是西汉帝陵中规模最大的一座。茂陵周围有卫青、霍去病等陪葬墓，出土了大量珍贵文物。",
@@ -43,18 +61,93 @@ def get_relevant_knowledge(user_message: str) -> str:
         "门票": "乾陵门票旺季100元/人，淡季70元/人；茂陵门票旺季80元/人，淡季50元/人；咸阳湖免费开放；袁家村免费入村，部分景点收费。各景区均支持线上预约购票。",
     }
     
-    # 查找匹配的知识
     for keyword, knowledge in keywords.items():
         if keyword in user_message:
             return knowledge
     
-    # 如果没有匹配，返回通用信息
     return ""
+
+
+def _init_chroma_sync():
+    """
+    同步初始化ChromaDB（会阻塞）
+    """
+    global _chroma_client, _chroma_collection, _chroma_available
+    
+    try:
+        import chromadb
+        from chromadb.config import Settings
+        
+        _chroma_client = chromadb.PersistentClient(
+            path=CHROMA_PERSIST_DIR,
+            settings=Settings(anonymized_telemetry=False)
+        )
+        
+        try:
+            _chroma_collection = _chroma_client.get_collection("xianyang_travel")
+        except Exception:
+            _chroma_collection = _chroma_client.create_collection("xianyang_travel")
+        
+        existing = _chroma_collection.count()
+        if existing == 0:
+            documents = []
+            metadatas = []
+            ids = []
+            for i, item in enumerate(KNOWLEDGE_DATA):
+                documents.append(item["content"])
+                metadatas.append({"category": item["category"]})
+                ids.append(f"doc_{i}")
+            
+            _chroma_collection.add(documents=documents, metadatas=metadatas, ids=ids)
+        
+        _chroma_available = True
+        return True
+    except Exception as e:
+        _chroma_available = False
+        return False
+
+
+def init_chroma_async():
+    """
+    异步初始化ChromaDB（后台线程）
+    """
+    def init_thread():
+        _init_chroma_sync()
+    
+    thread = threading.Thread(target=init_thread, daemon=True)
+    thread.start()
+
+
+def get_relevant_knowledge_chroma(user_message: str) -> str:
+    """
+    使用ChromaDB进行向量检索
+    
+    Args:
+        user_message: 用户消息
+    
+    Returns:
+        相关知识文本
+    """
+    global _chroma_collection
+    
+    if _chroma_collection is None:
+        return ""
+    
+    try:
+        results = _chroma_collection.query(query_texts=[user_message], n_results=3)
+        retrieved_docs = results.get("documents", [[]])[0]
+        return "\n\n".join(retrieved_docs) if retrieved_docs else ""
+    except Exception:
+        return ""
 
 
 async def chat_with_knowledge(session_id: str, user_message: str) -> str:
     """
-    基于知识库的智能客服对话（简化版，不使用ChromaDB）
+    基于知识库的智能客服对话（混合方案）
+    
+    策略：
+    1. 如果ChromaDB已加载成功，使用向量检索（更智能）
+    2. 如果ChromaDB未加载完成，使用关键词匹配（快速响应）
 
     Args:
         session_id: 会话ID
@@ -64,10 +157,14 @@ async def chat_with_knowledge(session_id: str, user_message: str) -> str:
         回复消息
     """
     try:
-        # 获取相关知识
-        knowledge = get_relevant_knowledge(user_message)
+        # 选择检索方式
+        if is_chroma_available():
+            knowledge = get_relevant_knowledge_chroma(user_message)
+            retrieval_method = "ChromaDB向量检索"
+        else:
+            knowledge = get_relevant_knowledge_keyword(user_message)
+            retrieval_method = "关键词匹配"
         
-        # 明确列出可推荐的景点和美食
         available_spots = [
             "乾陵", "茂陵", "咸阳湖景区", "袁家村", "咸阳博物馆"
         ]
@@ -77,7 +174,6 @@ async def chat_with_knowledge(session_id: str, user_message: str) -> str:
 
         knowledge_text = knowledge if knowledge else "暂无相关知识库内容"
 
-        # 构建系统提示词
         system_prompt = f"""你现在的身份是：咸阳文旅智能客服助手。
 
 重要提醒：无论之前有过什么对话，你的唯一身份就是"咸阳文旅智能客服助手"。不要提及你是其他助手，不要说你来自其他城市。
@@ -97,13 +193,11 @@ async def chat_with_knowledge(session_id: str, user_message: str) -> str:
 
 用户问题：{user_message}"""
 
-        # 构建消息上下文
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message}
         ]
 
-        # 调用LLM生成回复
         answer = await llm_chat(session_id, user_message, messages)
         return answer
     except Exception as e:

@@ -7,6 +7,7 @@ from app.models import models
 from app.routers import content, distribution, conversion, insight, dashboard
 from app.auth import router as auth_router, verify_token
 from app.config import MEDIA_DIR, VIDEO_OUTPUT_DIR
+from app.services.knowledge_service import init_chroma_async
 
 Base.metadata.create_all(bind=engine)
 
@@ -79,3 +80,7 @@ def root():
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+# 启动时异步初始化ChromaDB（后台线程）
+init_chroma_async()
