@@ -27,6 +27,7 @@ data/media/videos/
 
 # Models (large files, deployed separately)
 data/models/*.tar.gz
+onnx_model.tar.gz
 
 # Logs
 *.log
