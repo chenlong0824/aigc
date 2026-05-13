@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.env
+.env.local
+.env.*.local
+test_*.py
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+
+# Database
+*.db
+data/db/
+data/media/audio/
+data/media/videos/
+
+# Logs
+*.log
+logs/
+
+# Docs
+*.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
