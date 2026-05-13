@@ -54,15 +54,28 @@ else
     echo "  跳过（venv不存在）"
 fi
 
-# 5. 重启服务
+# 5. 构建前端
 echo ""
-echo "[5/6] 重启服务..."
+echo "[5/7] 构建前端..."
+if [ -f "frontend/package.json" ] && command -v npm &>/dev/null; then
+    cd frontend
+    npm install --silent 2>/dev/null
+    npm run build 2>/dev/null
+    cd ..
+    echo "  前端构建完成"
+else
+    echo "  跳过（缺少npm或package.json）"
+fi
+
+# 6. 重启服务
+echo ""
+echo "[6/7] 重启服务..."
 systemctl restart aigc-backend
 sleep 3
 
-# 6. 健康检查
+# 7. 健康检查
 echo ""
-echo "[6/6] 健康检查..."
+echo "[7/7] 健康检查..."
 for i in $(seq 1 10); do
     STATUS=$(curl -s http://127.0.0.1:8000/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
     if [ "$STATUS" = "ok" ]; then
