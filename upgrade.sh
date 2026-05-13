@@ -32,9 +32,21 @@ else
     echo "  模型文件不存在，将在首次使用时自动下载"
 fi
 
-# 3. 安装Python依赖
+# 3. 安装中文字体（FFmpeg 视频合成需要）
 echo ""
-echo "[3/5] 检查Python依赖..."
+echo "[3/6] 检查中文字体..."
+if fc-list :lang=zh 2>/dev/null | grep -q .; then
+    echo "  中文字体已安装"
+else
+    echo "  安装文泉驿微米黑..."
+    apt-get update -qq && apt-get install -y -qq fonts-wqy-microhei 2>/dev/null
+    fc-cache -fv 2>/dev/null
+    echo "  中文字体安装完成"
+fi
+
+# 4. 安装Python依赖
+echo ""
+echo "[4/6] 检查Python依赖..."
 if [ -f "backend/venv/bin/pip" ]; then
     backend/venv/bin/pip install -r backend/requirements.txt --quiet
     echo "  依赖已更新"
@@ -42,15 +54,15 @@ else
     echo "  跳过（venv不存在）"
 fi
 
-# 4. 重启服务
+# 5. 重启服务
 echo ""
-echo "[4/5] 重启服务..."
+echo "[5/6] 重启服务..."
 systemctl restart aigc-backend
 sleep 3
 
-# 5. 健康检查
+# 6. 健康检查
 echo ""
-echo "[5/5] 健康检查..."
+echo "[6/6] 健康检查..."
 for i in $(seq 1 10); do
     STATUS=$(curl -s http://127.0.0.1:8000/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
     if [ "$STATUS" = "ok" ]; then

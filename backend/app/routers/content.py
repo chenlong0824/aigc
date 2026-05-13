@@ -5,14 +5,35 @@ import uuid
 import asyncio
 import os
 import shutil
+import platform
 from app.services.llm_service import generate_script
 from app.services.tts_service import generate_tts
 from app.database import get_db, get_db_session
 from app.models.models import Template, Task, Media
 from app.config import FFMPEG_PATH, VIDEO_OUTPUT_DIR, MEDIA_DIR
 
-# 创建内容工厂的API路由
 router = APIRouter()
+
+
+def _get_chinese_font_path():
+    """跨平台获取中文字体路径"""
+    system = platform.system()
+    if system == "Windows":
+        candidates = [
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/msyh.ttc",
+        ]
+    else:
+        candidates = [
+            "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+            "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
 
 
 class ScriptRequest(BaseModel):
@@ -297,7 +318,11 @@ async def compose_video(req: ComposeRequest):
         output_path = os.path.join(VIDEO_OUTPUT_DIR, output_filename)
 
         scenes = script.get("scenes", [])
-        fontfile_ff = "C\\:/Windows/Fonts/simhei.ttf"
+        font_path = _get_chinese_font_path()
+        if font_path:
+            fontfile_ff = font_path.replace("\\", "/")
+        else:
+            fontfile_ff = None
         colors = ["#0f3460", "#16213e", "#1a1a2e", "#533483", "#e94560"]
 
         scene_files = []
@@ -326,14 +351,18 @@ async def compose_video(req: ComposeRequest):
             sf = subtitle.replace("'", "").replace("\\", "").replace(":", " ").replace("%", " ")
 
             # 构建FFmpeg的文字叠加滤镜
+            if fontfile_ff:
+                font_part = f"fontfile='{fontfile_ff}':"
+            else:
+                font_part = ""
             drawtext = (
-                f"drawtext=fontfile='{fontfile_ff}'"
-                f":text={sf}"
+                f"drawtext={font_part}"
+                f"text={sf}"
                 ":fontsize=38:fontcolor=white"
                 ":x=(w-text_w)/2:y=(h-text_h)/2-80"
                 ":box=1:boxcolor=black@0.35:boxborderw=16"
-                f",drawtext=fontfile='{fontfile_ff}'"
-                f":text=分镜 {i+1}/{len(scenes)}"
+                f",drawtext={font_part}"
+                f"text=分镜 {i+1}/{len(scenes)}"
                 ":fontsize=18:fontcolor=#aaaaaa"
                 ":x=(w-text_w)/2:y=(h-text_h)/2+30"
             )
@@ -417,12 +446,14 @@ async def compose_video(req: ComposeRequest):
             if os.path.exists(audio_path) and os.path.getsize(audio_path) > 100:
                 temp_video = output_path + ".tmp.mp4"
                 os.rename(output_path, temp_video)
-                subprocess.run(
+                merge_result = subprocess.run(
                     [ffmpeg_exe, "-y", "-i", temp_video, "-i", audio_path,
                      "-c:v", "copy", "-c:a", "aac", "-shortest", output_path],
                     capture_output=True, text=True, timeout=30
                 )
-                if os.path.exists(temp_video):
+                if merge_result.returncode != 0 or not os.path.exists(output_path):
+                    os.rename(temp_video, output_path)
+                elif os.path.exists(temp_video):
                     os.remove(temp_video)
         except Exception:
             pass
@@ -550,13 +581,17 @@ async def generate_digital_human(req: DigitalHumanRequest):
         output_path = os.path.join(VIDEO_OUTPUT_DIR, output_filename)
 
         # 使用FFmpeg生成演示视频
-        fontfile = "C\\:/Windows/Fonts/simhei.ttf"
+        font_path = _get_chinese_font_path()
+        if font_path:
+            font_part = f"fontfile='{font_path.replace(chr(92), '/')}':"
+        else:
+            font_part = ""
         script_preview = req.script[:40] + ("..." if len(req.script) > 40 else "")
         safe_preview = script_preview.replace("'", "").replace('"', "")
         cmd = [
             ffmpeg_exe, "-y",
             "-f", "lavfi", "-i", "color=c=#1a1a2e:s=1920x1080:d=8",
-            "-vf", f"drawtext=text='XianYang Digital Human':fontfile='{fontfile}':fontsize=36:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2-60,drawtext=text='Demo Broadcast':fontfile='{fontfile}':fontsize=28:fontcolor=#e94560:x=(w-text_w)/2:y=(h-text_h)/2+10",
+            "-vf", f"drawtext=text='XianYang Digital Human':{font_part}fontsize=36:fontcolor=white:x=(w-text_w)/2:y=(h-text_h)/2-60,drawtext=text='Demo Broadcast':{font_part}fontsize=28:fontcolor=#e94560:x=(w-text_w)/2:y=(h-text_h)/2+10",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             output_path
         ]
