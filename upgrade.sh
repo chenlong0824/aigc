@@ -22,7 +22,12 @@ MODEL_DIR="/root/.cache/chroma/onnx_models/all-MiniLM-L6-v2"
 mkdir -p "$MODEL_DIR"
 if [ -f "data/models/onnx_model.tar.gz" ]; then
     cp data/models/onnx_model.tar.gz "$MODEL_DIR/onnx.tar.gz"
-    echo "  模型已安装到缓存"
+    echo "  模型已安装到缓存 (from data/models/)"
+elif [ -f "onnx_model.tar.gz" ]; then
+    cp onnx_model.tar.gz "$MODEL_DIR/onnx.tar.gz"
+    echo "  模型已安装到缓存 (from project root)"
+elif [ -f "$MODEL_DIR/onnx.tar.gz" ]; then
+    echo "  模型已缓存，跳过"
 else
     echo "  模型文件不存在，将在首次使用时自动下载"
 fi
@@ -30,7 +35,12 @@ fi
 # 3. 安装Python依赖
 echo ""
 echo "[3/5] 检查Python依赖..."
-./venv/bin/pip install -r requirements.txt --quiet
+if [ -f "backend/venv/bin/pip" ]; then
+    backend/venv/bin/pip install -r backend/requirements.txt --quiet
+    echo "  依赖已更新"
+else
+    echo "  跳过（venv不存在）"
+fi
 
 # 4. 重启服务
 echo ""
