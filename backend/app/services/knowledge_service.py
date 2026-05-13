@@ -1,7 +1,11 @@
+import threading
+
 from app.config import CHROMA_PERSIST_DIR
 from app.services.llm_service import chat as llm_chat
 
 _chroma_collection = None
+_chroma_init_lock = threading.Lock()
+_chroma_init_done = False
 
 # 知识库数据
 KNOWLEDGE_DATA = [
@@ -23,9 +27,14 @@ KNOWLEDGE_DATA = [
 def init_chroma():
     """
     初始化ChromaDB（后台线程，模型缓存后约1秒完成）
+    如果同步初始化已经完成，则跳过；失败时不标记done，允许后续重试
     """
     def _init():
-        global _chroma_collection
+        global _chroma_collection, _chroma_init_done
+        
+        if _chroma_init_done and _chroma_collection is not None:
+            print("[ChromaDB] 初始化已完成，后台线程跳过", flush=True)
+            return
         
         import time
         t_start = time.time()
@@ -67,6 +76,7 @@ def init_chroma():
                 print(f"[ChromaDB] 添加{len(documents)}条文档完成, 耗时{time.time() - t3:.2f}s", flush=True)
             
             print(f"[ChromaDB] 初始化完成! 总耗时{time.time() - t_start:.2f}s", flush=True)
+            _chroma_init_done = True
         except Exception as e:
             import traceback as tb
             print(f"[ChromaDB] 初始化失败: {str(e)[:500]}", flush=True)
@@ -82,19 +92,85 @@ def init_chroma():
 init_chroma()
 
 
+def _try_init_chroma_sync():
+    """
+    同步尝试初始化ChromaDB（线程安全，模型已缓存时约1秒完成）
+    后台线程初始化失败后，此处会重试
+    """
+    global _chroma_collection, _chroma_init_done
+    
+    if _chroma_collection is not None:
+        return True
+    
+    with _chroma_init_lock:
+        if _chroma_collection is not None:
+            return True
+        
+        import time
+        t_start = time.time()
+        print("[ChromaDB] 同步重试初始化...", flush=True)
+        
+        try:
+            import chromadb
+            from chromadb.config import Settings
+            
+            t1 = time.time()
+            client = chromadb.PersistentClient(
+                path=CHROMA_PERSIST_DIR,
+                settings=Settings(anonymized_telemetry=False)
+            )
+            print(f"[ChromaDB] PersistentClient创建完成, 耗时{time.time() - t1:.2f}s", flush=True)
+            
+            t2 = time.time()
+            try:
+                _chroma_collection = client.get_collection("xianyang_travel")
+                print(f"[ChromaDB] get_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
+            except Exception:
+                _chroma_collection = client.create_collection("xianyang_travel")
+                print(f"[ChromaDB] create_collection完成, 耗时{time.time() - t2:.2f}s", flush=True)
+            
+            existing = _chroma_collection.count()
+            print(f"[ChromaDB] 现有文档数: {existing}", flush=True)
+            if existing == 0:
+                documents = []
+                metadatas = []
+                ids = []
+                for i, item in enumerate(KNOWLEDGE_DATA):
+                    documents.append(item["content"])
+                    metadatas.append({"category": item["category"]})
+                    ids.append(f"doc_{i}")
+                
+                t3 = time.time()
+                _chroma_collection.add(documents=documents, metadatas=metadatas, ids=ids)
+                print(f"[ChromaDB] 添加{len(documents)}条文档完成, 耗时{time.time() - t3:.2f}s", flush=True)
+            
+            _chroma_init_done = True
+            print(f"[ChromaDB] 同步初始化完成! 总耗时{time.time() - t_start:.2f}s", flush=True)
+            return True
+        except Exception as e:
+            import traceback as tb
+            print(f"[ChromaDB] 同步初始化失败: {str(e)[:500]}", flush=True)
+            print(tb.format_exc()[:500], flush=True)
+            _chroma_collection = None
+            _chroma_init_done = True
+            return False
+
+
 def get_relevant_knowledge(user_message: str) -> str:
     """
-    使用ChromaDB进行向量检索
-    
+    使用ChromaDB进行向量检索（首次调用时自动懒加载初始化）
+
     Args:
         user_message: 用户消息
-    
+
     Returns:
         相关知识文本
     """
     if _chroma_collection is None:
-        return ""
-    
+        _try_init_chroma_sync()
+        if _chroma_collection is None:
+            return ""
+
     try:
         results = _chroma_collection.query(query_texts=[user_message], n_results=3)
         retrieved_docs = results.get("documents", [[]])[0]
