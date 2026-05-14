@@ -12,12 +12,12 @@ cd /opt/aigc
 
 # 1. 拉取最新代码
 echo ""
-echo "[1/5] 拉取最新代码..."
+echo "[1/9] 拉取最新代码..."
 git pull origin main
 
 # 2. 安装模型到缓存目录（首次部署或更新模型时）
 echo ""
-echo "[2/5] 安装ONNX模型到缓存..."
+echo "[2/9] 安装ONNX模型到缓存..."
 MODEL_DIR="/root/.cache/chroma/onnx_models/all-MiniLM-L6-v2"
 mkdir -p "$MODEL_DIR"
 if [ -f "data/models/onnx_model.tar.gz" ]; then
@@ -32,9 +32,36 @@ else
     echo "  模型文件不存在，将在首次使用时自动下载"
 fi
 
-# 3. 安装中文字体（FFmpeg 视频合成需要）
+# 3. 解压素材图片（首次部署或更新素材时）
 echo ""
-echo "[3/6] 检查中文字体..."
+echo "[3/9] 解压素材图片..."
+IMAGES_DIR="data/media/images"
+if [ -f "data/media/images.tar.gz" ]; then
+    mkdir -p "$IMAGES_DIR"
+    tar -xzf data/media/images.tar.gz -C data/media
+    echo "  素材图片已解压 ($(ls $IMAGES_DIR | wc -l) 个文件)"
+elif [ -d "$IMAGES_DIR" ] && [ "$(ls -A $IMAGES_DIR 2>/dev/null)" ]; then
+    echo "  素材图片已存在，跳过"
+else
+    echo "  [WARN] images.tar.gz 不存在，图片素材为空"
+fi
+
+# 4. 初始化种子数据（数据库表、模板、账号、素材记录）
+echo ""
+echo "[4/9] 初始化种子数据..."
+if [ -f "backend/venv/bin/python" ]; then
+    echo "  初始化模板/账号/排行榜..."
+    backend/venv/bin/python scripts/seed_data.py 2>/dev/null
+    echo "  初始化素材库记录..."
+    backend/venv/bin/python scripts/seed_media.py 2>/dev/null
+    echo "  种子数据完成"
+else
+    echo "  跳过（venv不存在）"
+fi
+
+# 5. 安装中文字体（FFmpeg 视频合成需要）
+echo ""
+echo "[5/9] 检查中文字体..."
 if fc-list :lang=zh 2>/dev/null | grep -q .; then
     echo "  中文字体已安装"
 else
@@ -44,9 +71,9 @@ else
     echo "  中文字体安装完成"
 fi
 
-# 4. 安装Python依赖
+# 6. 安装Python依赖
 echo ""
-echo "[4/6] 检查Python依赖..."
+echo "[6/9] 检查Python依赖..."
 if [ -f "backend/venv/bin/pip" ]; then
     backend/venv/bin/pip install -r backend/requirements.txt --quiet
     echo "  依赖已更新"
@@ -54,9 +81,9 @@ else
     echo "  跳过（venv不存在）"
 fi
 
-# 5. 构建前端
+# 7. 构建前端
 echo ""
-echo "[5/7] 构建前端..."
+echo "[7/9] 构建前端..."
 if [ -f "frontend/package.json" ] && command -v npm &>/dev/null; then
     cd frontend
     npm install --silent 2>/dev/null
@@ -67,15 +94,15 @@ else
     echo "  跳过（缺少npm或package.json）"
 fi
 
-# 6. 重启服务
+# 8. 重启服务
 echo ""
-echo "[6/7] 重启服务..."
+echo "[8/9] 重启服务..."
 systemctl restart aigc-backend
 sleep 3
 
-# 7. 健康检查
+# 9. 健康检查
 echo ""
-echo "[7/7] 健康检查..."
+echo "[9/9] 健康检查..."
 for i in $(seq 1 10); do
     STATUS=$(curl -s http://127.0.0.1:8000/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
     if [ "$STATUS" = "ok" ]; then

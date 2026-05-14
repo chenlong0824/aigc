@@ -29,6 +29,10 @@ data/media/videos/
 data/models/*.tar.gz
 onnx_model.tar.gz
 
+# Media assets (deployed separately)
+data/media/images/
+data/media/images.tar.gz
+
 # Logs
 *.log
 logs/
