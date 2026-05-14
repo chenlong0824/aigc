@@ -9,6 +9,7 @@ venv/
 .env.local
 .env.*.local
 test_*.py
+!scripts/test_api.py
 
 # Node.js
 node_modules/
