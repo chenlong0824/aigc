@@ -12,12 +12,12 @@ cd /opt/aigc
 
 # 1. 拉取最新代码
 echo ""
-echo "[1/9] 拉取最新代码..."
+echo "[1/10] 拉取最新代码..."
 git pull origin main
 
 # 2. 安装模型到缓存目录（首次部署或更新模型时）
 echo ""
-echo "[2/9] 安装ONNX模型到缓存..."
+echo "[2/10] 安装ONNX模型到缓存..."
 MODEL_DIR="/root/.cache/chroma/onnx_models/all-MiniLM-L6-v2"
 mkdir -p "$MODEL_DIR"
 if [ -f "data/models/onnx_model.tar.gz" ]; then
@@ -34,7 +34,7 @@ fi
 
 # 3. 解压素材图片（首次部署或更新素材时）
 echo ""
-echo "[3/9] 解压素材图片..."
+echo "[3/10] 解压素材图片..."
 IMAGES_DIR="data/media/images"
 if [ -f "data/media/images.tar.gz" ]; then
     mkdir -p "$IMAGES_DIR"
@@ -48,7 +48,7 @@ fi
 
 # 4. 初始化种子数据（数据库表、模板、账号、素材记录）
 echo ""
-echo "[4/9] 初始化种子数据..."
+echo "[4/10] 初始化种子数据..."
 if [ -f "backend/venv/bin/python" ]; then
     echo "  初始化模板/账号/排行榜..."
     backend/venv/bin/python scripts/seed_data.py 2>/dev/null
@@ -61,7 +61,7 @@ fi
 
 # 5. 安装中文字体（FFmpeg 视频合成需要）
 echo ""
-echo "[5/9] 检查中文字体..."
+echo "[5/10] 检查中文字体..."
 if fc-list :lang=zh 2>/dev/null | grep -q .; then
     echo "  中文字体已安装"
 else
@@ -73,7 +73,7 @@ fi
 
 # 6. 安装Python依赖
 echo ""
-echo "[6/9] 检查Python依赖..."
+echo "[6/10] 检查Python依赖..."
 if [ -f "backend/venv/bin/pip" ]; then
     backend/venv/bin/pip install -r backend/requirements.txt --quiet
     echo "  依赖已更新"
@@ -83,7 +83,7 @@ fi
 
 # 7. 构建前端
 echo ""
-echo "[7/9] 构建前端..."
+echo "[7/10] 构建前端..."
 if [ -f "frontend/package.json" ] && command -v npm &>/dev/null; then
     cd frontend
     npm install --silent 2>/dev/null
@@ -96,13 +96,13 @@ fi
 
 # 8. 重启服务
 echo ""
-echo "[8/9] 重启服务..."
+echo "[8/10] 重启服务..."
 systemctl restart aigc-backend
 sleep 3
 
 # 9. 健康检查
 echo ""
-echo "[9/9] 健康检查..."
+echo "[9/10] 健康检查..."
 for i in $(seq 1 10); do
     STATUS=$(curl -s http://127.0.0.1:8000/api/health | python3 -c "import sys,json; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
     if [ "$STATUS" = "ok" ]; then
@@ -111,6 +111,15 @@ for i in $(seq 1 10); do
     fi
     sleep 2
 done
+
+# 10. 自动化测试
+echo ""
+echo "[10/10] 自动化测试..."
+if [ -f "backend/venv/bin/python" ] && [ -f "scripts/test_api.py" ]; then
+    backend/venv/bin/python scripts/test_api.py || echo "  自动化测试存在失败，请检查日志"
+else
+    echo "  跳过（缺少 venv 或测试脚本）"
+fi
 
 echo ""
 echo "========================================="
