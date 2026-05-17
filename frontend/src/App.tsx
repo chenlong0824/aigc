@@ -9,6 +9,7 @@ import {
   SettingOutlined,
   PictureOutlined,
   LogoutOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons'
 import Dashboard from './pages/Dashboard'
 import Login from './pages/Login'
@@ -22,6 +23,8 @@ import AttributionAnalysis from './pages/Conversion/AttributionAnalysis'
 import UserProfile from './pages/Insight/UserProfile'
 import Settings from './pages/Settings'
 import MediaLibrary from './pages/Settings/MediaLibrary'
+import DifyAgentList from './pages/DifyAgent'
+import AgentDetail from './pages/DifyAgent/AgentDetail'
 import { isAuthenticated, removeToken } from './services/auth'
 
 const { Header, Sider, Content } = Layout
@@ -64,6 +67,7 @@ const menuItems = [
       { key: '/insight/profiles', label: '用户画像' },
     ],
   },
+  { key: '/dify', icon: <ThunderboltOutlined />, label: '✨ Dify Agent' },
   { key: '/settings', icon: <SettingOutlined />, label: '系统设置' },
   { key: '/settings/media', icon: <PictureOutlined />, label: '素材库' },
 ]
@@ -141,6 +145,8 @@ function App() {
                     <Route path="/conversion/customer-service" element={<AiCustomerService />} />
                     <Route path="/conversion/attribution" element={<AttributionAnalysis />} />
                     <Route path="/insight/profiles" element={<UserProfile />} />
+                    <Route path="/dify" element={<DifyAgentList />} />
+                    <Route path="/dify/:agentId" element={<AgentDetail />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/settings/media" element={<MediaLibrary />} />
                   </Routes>
