@@ -77,4 +77,9 @@ export const dashboardApi = {
   getTrends: () => api.get('/dashboard/trends'),
 }
 
+export const configApi = {
+  getDifyAgents: () => api.get('/config/dify-agents'),
+  updateDifyAgents: (config: unknown) => api.post('/config/dify-agents', config),
+}
+
 export default api

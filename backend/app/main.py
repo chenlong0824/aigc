@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from app.database import engine, Base
 from app.models import models
-from app.routers import content, distribution, conversion, insight, dashboard
+from app.routers import content, distribution, conversion, insight, dashboard, config
 from app.auth import router as auth_router, verify_token
 from app.config import MEDIA_DIR, VIDEO_OUTPUT_DIR
 # 导入 knowledge_service 以触发 ChromaDB 初始化
@@ -67,6 +67,7 @@ app.include_router(distribution.router, prefix="/api", tags=["分发网络"])
 app.include_router(conversion.router, prefix="/api", tags=["流量转化"])
 app.include_router(insight.router, prefix="/api/insight", tags=["客群洞察"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["仪表盘"])
+app.include_router(config.router, prefix="/api/config", tags=["系统配置"])
 
 import os
 os.makedirs(MEDIA_DIR, exist_ok=True)
