@@ -1,0 +1,28 @@
+{
+  "agents": [
+    {
+      "id": "旅游",
+      "name": "默认旅游助手",
+      "description": "默认旅游助手",
+      "icon": "RobotOutlined",
+      "token": "spcjGPdHHHqq9yUg",
+      "baseUrl": "http://localhost:8080"
+    },
+    {
+      "id": "矿工",
+      "name": "默认矿工助手",
+      "description": "默认矿工助手",
+      "icon": "RobotOutlined",
+      "token": "pP2fZ2obLf2dDEzP",
+      "baseUrl": "http://localhost:8080"
+    },
+    {
+      "id": "问答",
+      "name": "默认问答助手",
+      "description": "默认问答助手",
+      "icon": "RobotOutlined",
+      "token": "9WPH4bk4aCeW9Tbp",
+      "baseUrl": "http://localhost:8080"
+    }
+  ]
+}
